@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BulkSend — SMS Announcer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap');
+:root{
+  --bg:#f4f3ef;--surface:#fff;--surface2:#f9f8f5;--border:#e0ddd5;
+  --text:#1a1916;--muted:#6b6a65;
+  --accent:#2d6a4f;--accent-light:#d8f0e5;--accent-dark:#1b4332;
+  --danger:#c0392b;--danger-light:#fdecea;
+  --warn:#b7791f;--warn-light:#fef3cd;
+  --success-light:#d8f0e5;--r:12px;--rs:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+header{background:var(--accent-dark);color:#fff;padding:0 2rem;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.logo{font-family:'Space Grotesk',sans-serif;font-size:1.3rem;font-weight:700;letter-spacing:-.5px;}
+.logo span{color:#74c69d;}
+.api-status{font-size:12px;padding:4px 12px;border-radius:20px;background:rgba(255,255,255,.12);display:flex;align-items:center;gap:6px;}
+.dot{width:8px;height:8px;border-radius:50%;background:#777;}
+.dot.ok{background:#74c69d;}.dot.err{background:#ff6b6b;}
+.layout{max-width:980px;margin:0 auto;padding:2rem 1.5rem 4rem;display:grid;grid-template-columns:1fr 300px;gap:1.5rem;align-items:start;}
+@media(max-width:700px){.layout{grid-template-columns:1fr;padding:1rem;}.sidebar{position:static!important;}}
+.page-tabs{display:flex;border-bottom:1.5px solid var(--border);margin-bottom:1.5rem;}
+.page-tab{padding:10px 20px;font-size:14px;font-weight:500;cursor:pointer;color:var(--muted);border-bottom:2.5px solid transparent;margin-bottom:-1.5px;transition:color .15s;}
+.page-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.5rem;margin-bottom:1.25rem;}
+.card:last-child{margin-bottom:0;}
+.card-title{font-family:'Space Grotesk',sans-serif;font-size:.8rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:1.1rem;display:flex;align-items:center;gap:8px;}
+.step-dot{width:22px;height:22px;background:var(--accent);color:#fff;border-radius:50%;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
+label{display:block;font-size:13px;font-weight:500;color:var(--muted);margin-bottom:5px;}
+input[type=text],input[type=password],textarea,select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 14px;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--text);outline:none;transition:border-color .15s;}
+input:focus,textarea:focus,select:focus{border-color:var(--accent);background:#fff;}
+textarea{resize:vertical;min-height:100px;line-height:1.6;}
+.form-row{margin-bottom:1rem;}.form-row:last-child{margin-bottom:0;}
+.hint{font-size:12px;color:var(--muted);margin-top:5px;line-height:1.5;}.hint strong{color:var(--text);}
+.inline-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem;}
+.apikey-row{display:flex;gap:8px;align-items:flex-end;}.apikey-row input{flex:1;}
+.btn-test{padding:10px 16px;background:var(--accent-dark);color:#fff;border:none;border-radius:var(--rs);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .15s;}
+.btn-test:hover{background:var(--accent);}.btn-test:disabled{background:#aaa;cursor:not-allowed;}
+.char-row{display:flex;justify-content:space-between;margin-top:5px;}
+.char-count{font-size:12px;color:var(--muted);}.char-warn{color:var(--warn);}
+.upload-zone{border:2px dashed var(--border);border-radius:var(--rs);padding:1.75rem 1rem;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;position:relative;}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:var(--accent-light);}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;}
+.upload-zone p{font-size:14px;color:var(--muted);}
+.sample-link{font-size:12px;color:var(--accent);cursor:pointer;text-decoration:underline;display:inline-block;margin-top:4px;}
+.table-wrap{max-height:210px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);margin-top:1rem;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{background:var(--surface2);color:var(--muted);font-weight:500;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);position:sticky;top:0;}
+td{padding:7px 12px;border-bottom:1px solid var(--border);}
+tr:last-child td{border-bottom:none;}
+.badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:500;}
+.bg{background:var(--success-light);color:var(--accent-dark);}.br{background:var(--danger-light);color:var(--danger);}.bgy{background:#ebebeb;color:var(--muted);}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:1rem;}
+.stat-box{background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:10px;text-align:center;}
+.stat-num{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;color:var(--accent);}
+.stat-label{font-size:11px;color:var(--muted);margin-top:1px;}
+.alert{padding:10px 14px;border-radius:var(--rs);font-size:13px;margin-bottom:1rem;line-height:1.5;}
+.alert-warn{background:var(--warn-light);color:var(--warn);border:1px solid #f6c26b;}
+.alert-success{background:var(--success-light);color:var(--accent-dark);border:1px solid #95d5b2;}
+.alert-danger{background:var(--danger-light);color:var(--danger);border:1px solid #f5b7b1;}
+.alert-info{background:#e8f4fd;color:#1a5276;border:1px solid #aed6f1;}
+.prog-wrap{background:var(--border);border-radius:10px;height:8px;overflow:hidden;margin:8px 0;}
+.prog-bar{height:100%;background:var(--accent);border-radius:10px;transition:width .25s;width:0%;}
+.btn-send{width:100%;padding:14px;background:var(--accent);color:#fff;border:none;border-radius:var(--rs);font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:background .2s,transform .1s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.btn-send:hover{background:var(--accent-dark);}.btn-send:active{transform:scale(.98);}.btn-send:disabled{background:#aaa;cursor:not-allowed;transform:none;}
+.btn-stop{width:100%;padding:12px;background:var(--danger);color:#fff;border:none;border-radius:var(--rs);font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;display:none;}
+.btn-stop:hover{background:#a93226;}
+.btn-sec{padding:8px 14px;background:transparent;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;font-weight:500;cursor:pointer;color:var(--text);transition:background .15s;}
+.btn-sec:hover{background:var(--surface2);}
+.log-wrap{background:#1a1916;border-radius:var(--rs);padding:1rem;max-height:190px;overflow-y:auto;font-family:monospace;font-size:12px;line-height:1.9;}
+.lok{color:#74c69d;}.lerr{color:#ff6b6b;}.linf{color:#adb5bd;}.lwarn{color:#f6c26b;}
+.preview-sender{font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:500;}
+.preview-bubble{background:#e8e8e8;border-radius:18px 18px 18px 4px;padding:12px 16px;font-size:14px;line-height:1.6;color:#1a1916;max-width:92%;word-break:break-word;}
+.no-reply-tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);margin-top:8px;padding:3px 8px;border:1px solid var(--border);border-radius:20px;}
+.preview-time{font-size:11px;color:var(--muted);margin-top:5px;text-align:right;}
+.sidebar{position:sticky;top:76px;}
+.history-empty{text-align:center;color:var(--muted);font-size:13px;padding:2rem;}
+.modal-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center;}
+.modal-ov.open{display:flex;}
+.modal{background:var(--surface);border-radius:var(--r);padding:2rem;max-width:460px;width:90%;}
+.modal h3{font-family:'Space Grotesk',sans-serif;font-size:1.1rem;margin-bottom:.75rem;}
+.modal p{font-size:14px;color:var(--muted);line-height:1.6;}
+.modal-actions{display:flex;gap:10px;margin-top:1.5rem;justify-content:flex-end;}
+.btn-confirm{padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:var(--rs);font-size:14px;font-weight:600;cursor:pointer;}
+.btn-confirm:hover{background:var(--accent-dark);}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;}
+
+/* SERVER URL banner */
+.server-banner{background:var(--warn-light);border:1px solid #f6c26b;border-radius:var(--rs);padding:10px 14px;font-size:13px;color:var(--warn);margin-bottom:1rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.server-banner input{flex:1;min-width:200px;font-size:13px;padding:6px 10px;border:1px solid #f6c26b;background:#fff;border-radius:6px;color:var(--text);}
+.server-banner button{padding:6px 14px;background:var(--warn);color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:600;white-space:nowrap;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Bulk<span>Send</span></div>
+  <div class="api-status"><div class="dot" id="apiDot"></div><span id="apiStatusText">Not connected</span></div>
+</header>
+
+<div style="max-width:980px;margin:0 auto;padding:1.5rem 1.5rem 0;">
+  <div class="page-tabs">
+    <div class="page-tab active" data-tab="compose" onclick="switchTab('compose')">✉ Compose & Send</div>
+    <div class="page-tab" data-tab="history" onclick="switchTab('history')">📋 Send History</div>
+  </div>
+</div>
+
+<!-- COMPOSE TAB -->
+<div id="tab-compose" class="layout">
+  <div>
+
+    <!-- SERVER URL -->
+    <div class="card">
+      <div class="card-title">⚙ Server URL</div>
+      <div class="hint" style="margin-bottom:10px;">After deploying to Render, paste your server URL here. It ends in <strong>.onrender.com</strong></div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="serverUrl" placeholder="https://your-app.onrender.com" oninput="saveServerUrl()"/>
+        <button class="btn-test" onclick="pingServer()">Ping</button>
+      </div>
+      <div id="serverAlert" style="margin-top:.75rem;"></div>
+    </div>
+
+    <!-- API KEY -->
+    <div class="card">
+      <div class="card-title"><span class="step-dot">1</span> Arkesel API Key</div>
+      <div class="form-row">
+        <label>API Key <a href="https://arkesel.com" target="_blank" style="font-size:11px;color:var(--accent);text-decoration:underline;margin-left:6px;">Get one free →</a></label>
+        <div class="apikey-row">
+          <input type="password" id="apiKey" placeholder="Your Arkesel API Key" autocomplete="off"/>
+          <button class="btn-test" id="testBtn" onclick="testConnection()">Test</button>
+        </div>
+        <div class="hint">Sent securely through your own server. Never stored.</div>
+      </div>
+      <div id="connAlert" style="margin-top:.75rem;display:none;"></div>
+    </div>
+
+    <!-- COMPOSE -->
+    <div class="card">
+      <div class="card-title"><span class="step-dot">2</span> Compose Message</div>
+      <div class="form-row">
+        <label>Sender ID</label>
+        <input type="text" id="senderId" placeholder="e.g. SCHOOLNEWS" maxlength="11" oninput="updatePreview()"/>
+        <div class="hint">Max <strong>11 chars</strong>, letters & numbers only. Recipients cannot reply.</div>
+      </div>
+      <div class="form-row">
+        <label>Message</label>
+        <textarea id="msgText" placeholder="Type your announcement here..." oninput="updatePreview()"></textarea>
+        <div class="char-row">
+          <span class="hint">160 chars = 1 SMS page.</span>
+          <span class="char-count" id="charCount">0 / 160 · 1 page</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTACTS -->
+    <div class="card">
+      <div class="card-title"><span class="step-dot">3</span> Upload Contacts</div>
+      <div class="alert alert-info" style="margin-bottom:1rem;">
+        Excel file needs a column named <strong>Phone</strong> (or <em>phone, mobile, contact, number</em>). <strong>Name</strong> is optional.
+        <span class="sample-link" onclick="downloadSample()">↓ Download sample</span>
+      </div>
+      <div class="upload-zone" id="dropZone">
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv"/>
+        <div style="font-size:28px;margin-bottom:6px;">📂</div>
+        <p><strong>Click to browse</strong> or drag & drop</p>
+        <p style="font-size:12px;margin-top:3px;">.xlsx · .xls · .csv</p>
+      </div>
+      <div id="contactSection" style="display:none;">
+        <div class="stats-row">
+          <div class="stat-box"><div class="stat-num" id="stTotal">0</div><div class="stat-label">Total</div></div>
+          <div class="stat-box"><div class="stat-num" id="stValid" style="color:var(--accent)">0</div><div class="stat-label">Valid</div></div>
+          <div class="stat-box"><div class="stat-num" id="stInvalid" style="color:var(--danger)">0</div><div class="stat-label">Invalid</div></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Name</th><th>Phone</th><th>Status</th></tr></thead>
+            <tbody id="contactBody"></tbody>
+          </table>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center;">
+          <button class="btn-sec" onclick="clearContacts()">✕ Clear</button>
+          <span style="font-size:13px;color:var(--muted)" id="contactSummary"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEND -->
+    <div class="card">
+      <div class="card-title"><span class="step-dot">4</span> Send</div>
+      <div class="inline-grid" style="margin-bottom:1rem;">
+        <div class="form-row" style="margin:0;">
+          <label>Delay between SMS</label>
+          <select id="delayMs">
+            <option value="300">300ms — fast</option>
+            <option value="500" selected>500ms — recommended</option>
+            <option value="1000">1s — safe</option>
+            <option value="2000">2s — slow</option>
+          </select>
+        </div>
+        <div class="form-row" style="margin:0;">
+          <label>Retry failed</label>
+          <select id="retryCount">
+            <option value="0">No retry</option>
+            <option value="1" selected>Retry once</option>
+            <option value="2">Retry twice</option>
+          </select>
+        </div>
+      </div>
+      <div id="sendAlert"></div>
+      <div id="progSection" style="display:none;margin-bottom:1rem;">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;">
+          <span id="progLabel">Sending...</span><span id="progPct">0%</span>
+        </div>
+        <div class="prog-wrap"><div class="prog-bar" id="progBar"></div></div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px;" id="progDetail"></div>
+      </div>
+      <button class="btn-send" id="sendBtn" onclick="handleSend()">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        Send Bulk SMS
+      </button>
+      <button class="btn-stop" id="stopBtn" onclick="stopSend()">⏹ Stop Sending</button>
+      <div id="logSection" style="display:none;margin-top:1.25rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-size:13px;font-weight:500;">Delivery Log</span>
+          <button class="btn-sec" onclick="exportLog()" style="font-size:12px;padding:5px 12px;">↓ Export</button>
+        </div>
+        <div class="log-wrap" id="logWrap"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="card">
+      <div class="card-title">📱 Preview</div>
+      <div class="preview-sender" id="prevSender">SENDER ID</div>
+      <div class="preview-bubble" id="prevBubble">Your message will appear here...</div>
+      <div class="preview-time">Today, <span id="prevTime"></span></div>
+      <div class="no-reply-tag">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+        Cannot reply
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">💰 Estimate</div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid var(--border);">
+        <span style="color:var(--muted);">Recipients</span><strong id="eRecip">0</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid var(--border);">
+        <span style="color:var(--muted);">SMS pages</span><strong id="ePages">1</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;">
+        <span style="color:var(--muted);">Total units</span><strong id="eUnits">0</strong>
+      </div>
+      <div class="hint" style="margin-top:8px;">Top up via MoMo at <a href="https://arkesel.com" target="_blank" style="color:var(--accent);">arkesel.com</a></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🚀 Deploy Guide</div>
+      <ol style="font-size:13px;color:var(--muted);line-height:2.1;padding-left:1.1rem;">
+        <li>Upload project to <a href="https://github.com" target="_blank" style="color:var(--accent);">GitHub</a></li>
+        <li>Go to <a href="https://render.com" target="_blank" style="color:var(--accent);">render.com</a> → New Web Service</li>
+        <li>Connect your GitHub repo</li>
+        <li>Start command: <code style="background:var(--surface2);padding:1px 5px;border-radius:4px;">node server.js</code></li>
+        <li>Copy the <strong>.onrender.com</strong> URL</li>
+        <li>Paste it in Server URL above</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY TAB -->
+<div id="tab-history" style="display:none;max-width:980px;margin:0 auto;padding:0 1.5rem 4rem;">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <div class="card-title" style="margin:0;">📋 Send History</div>
+      <button class="btn-sec" onclick="clearHistory()" style="font-size:12px;padding:6px 14px;">Clear All</button>
+    </div>
+    <div id="historyContainer"><div class="history-empty">No history yet.</div></div>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="modal-ov" id="confirmModal">
+  <div class="modal">
+    <h3>Confirm Bulk Send</h3>
+    <p id="confirmText"></p>
+    <div class="modal-actions">
+      <button class="btn-sec" onclick="closeModal()">Cancel</button>
+      <button class="btn-confirm" onclick="executeSend()">Send Now</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────────
+let contacts = [], logLines = [], isSending = false, stopFlag = false;
+let sendHistory = JSON.parse(localStorage.getItem('bulksend_history') || '[]');
+
+function getServer() {
+  const v = document.getElementById('serverUrl').value.trim().replace(/\/$/, '');
+  return v || null;
+}
+function saveServerUrl() {
+  localStorage.setItem('bulksend_serverUrl', document.getElementById('serverUrl').value.trim());
+}
+
+// restore saved server URL
+const savedUrl = localStorage.getItem('bulksend_serverUrl');
+if (savedUrl) document.getElementById('serverUrl').value = savedUrl;
+
+// ─── TABS ─────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.page-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.getElementById('tab-compose').style.display = tab === 'compose' ? 'grid' : 'none';
+  document.getElementById('tab-history').style.display = tab === 'history' ? 'block' : 'none';
+  if (tab === 'history') renderHistory();
+}
+
+// ─── SERVER PING ──────────────────────────────────────────────────
+async function pingServer() {
+  const url = getServer();
+  if (!url) { showServerAlert('Enter your Render server URL first.', 'warn'); return; }
+  showServerAlert('<span class="spin"></span> Pinging...', 'info');
+  try {
+    const r = await fetch(`${url}/health`);
+    const d = await r.json();
+    if (d.status === 'ok') {
+      showServerAlert('✓ Server is online and reachable!', 'success');
+      setApiStatus(true, 'Server online');
+    } else {
+      showServerAlert('Server responded but returned unexpected data.', 'warn');
+    }
+  } catch (e) {
+    showServerAlert(`✗ Could not reach server: ${e.message}`, 'danger');
+    setApiStatus(false, 'Offline');
+  }
+}
+
+function showServerAlert(html, type) {
+  document.getElementById('serverAlert').innerHTML = `<div class="alert alert-${type}" style="margin:0">${html}</div>`;
+}
+
+// ─── TEST API KEY ─────────────────────────────────────────────────
+async function testConnection() {
+  const key = document.getElementById('apiKey').value.trim();
+  const url = getServer();
+  if (!url) { showConnAlert('Set your Server URL first (top of page).', 'warn'); return; }
+  if (!key) { showConnAlert('Enter your Arkesel API key.', 'warn'); return; }
+
+  const btn = document.getElementById('testBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
+
+  try {
+    const r = await fetch(`${url}/api/balance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey: key })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      showConnAlert(`✓ Connected! Balance: <strong>${d.balance}</strong> SMS credits`, 'success');
+      setApiStatus(true, `Balance: ${d.balance}`);
+    } else {
+      showConnAlert(`✗ ${d.message || 'Invalid API key'}`, 'danger');
+      setApiStatus(false, 'Key error');
+    }
+  } catch (e) {
+    showConnAlert(`✗ ${e.message}`, 'danger');
+    setApiStatus(false, 'Error');
+  }
+  btn.disabled = false; btn.textContent = 'Test';
+}
+
+function showConnAlert(html, type) {
+  const el = document.getElementById('connAlert');
+  el.style.display = 'block';
+  el.innerHTML = `<div class="alert alert-${type}" style="margin:0">${html}</div>`;
+}
+function setApiStatus(ok, text) {
+  document.getElementById('apiDot').className = 'dot ' + (ok ? 'ok' : 'err');
+  document.getElementById('apiStatusText').textContent = text;
+}
+
+// ─── PHONE UTILS ──────────────────────────────────────────────────
+function normalizePhone(raw) {
+  let p = String(raw).replace(/[\s\-\(\)\.]/g, '');
+  if (/^0[2-9]\d{8}$/.test(p)) p = '+233' + p.slice(1);
+  else if (/^233\d{9}$/.test(p)) p = '+' + p;
+  else if (/^\d{9,12}$/.test(p)) p = '+' + p;
+  return p;
+}
+function isValidPhone(raw) { return /^\+\d{8,15}$/.test(normalizePhone(raw)); }
+
+// ─── PREVIEW ──────────────────────────────────────────────────────
+function updatePreview() {
+  document.getElementById('prevSender').textContent = document.getElementById('senderId').value || 'SENDER ID';
+  document.getElementById('prevBubble').textContent = document.getElementById('msgText').value || 'Your message will appear here...';
+  document.getElementById('prevTime').textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const len = document.getElementById('msgText').value.length;
+  const pages = len === 0 ? 1 : len <= 160 ? 1 : Math.ceil(len / 153);
+  const el = document.getElementById('charCount');
+  el.textContent = `${len} / 160 · ${pages} page${pages > 1 ? 's' : ''}`;
+  el.className = 'char-count' + (len > 160 ? ' char-warn' : '');
+  document.getElementById('ePages').textContent = pages;
+  updateEstimate();
+}
+function updateEstimate() {
+  const v = contacts.filter(c => c.valid).length;
+  const p = parseInt(document.getElementById('ePages').textContent) || 1;
+  document.getElementById('eRecip').textContent = v;
+  document.getElementById('eUnits').textContent = v * p;
+}
+
+// ─── FILE UPLOAD ──────────────────────────────────────────────────
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag'); processFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', e => { if (e.target.files[0]) processFile(e.target.files[0]); });
+
+function processFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+    if (!rows.length) { alert('No data found.'); return; }
+    const keys = Object.keys(rows[0]);
+    const phoneKey = keys.find(k => /phone|mobile|contact|number/i.test(k));
+    const nameKey  = keys.find(k => /name/i.test(k));
+    if (!phoneKey) { alert('No Phone column found. Rename a column to "Phone" and try again.'); return; }
+    contacts = rows.map((r, i) => ({
+      index: i + 1,
+      name: nameKey ? String(r[nameKey]).trim() : '',
+      phone: normalizePhone(String(r[phoneKey])),
+      valid: isValidPhone(String(r[phoneKey]))
+    }));
+    renderContactTable();
+    updateEstimate();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderContactTable() {
+  const valid = contacts.filter(c => c.valid).length;
+  document.getElementById('stTotal').textContent = contacts.length;
+  document.getElementById('stValid').textContent = valid;
+  document.getElementById('stInvalid').textContent = contacts.length - valid;
+  document.getElementById('contactBody').innerHTML = contacts.slice(0, 300).map(c => `
+    <tr>
+      <td style="color:var(--muted)">${c.index}</td>
+      <td>${c.name || '<span style="color:var(--muted)">—</span>'}</td>
+      <td style="font-family:monospace;font-size:12px">${c.phone}</td>
+      <td><span class="badge ${c.valid ? 'bg' : 'br'}">${c.valid ? 'Valid' : 'Invalid'}</span></td>
+    </tr>`).join('') + (contacts.length > 300 ? `<tr><td colspan="4" style="text-align:center;color:var(--muted);font-size:12px;padding:10px">…and ${contacts.length - 300} more</td></tr>` : '');
+  document.getElementById('contactSummary').textContent = `${valid} valid number${valid !== 1 ? 's' : ''} ready`;
+  document.getElementById('contactSection').style.display = 'block';
+}
+function clearContacts() { contacts = []; document.getElementById('contactSection').style.display = 'none'; fileInput.value = ''; updateEstimate(); }
+
+// ─── SEND FLOW ────────────────────────────────────────────────────
+function setAlert(html, type) {
+  document.getElementById('sendAlert').innerHTML = html ? `<div class="alert alert-${type}" style="margin-bottom:1rem">${html}</div>` : '';
+}
+
+function handleSend() {
+  if (isSending) return;
+  setAlert('', '');
+  const url = getServer(), key = document.getElementById('apiKey').value.trim();
+  const sid = document.getElementById('senderId').value.trim(), msg = document.getElementById('msgText').value.trim();
+  const valid = contacts.filter(c => c.valid);
+  if (!url)  { setAlert('Set your Render server URL at the top.', 'warn'); return; }
+  if (!key)  { setAlert('Enter your Arkesel API key.', 'warn'); return; }
+  if (!sid)  { setAlert('Enter a Sender ID.', 'warn'); return; }
+  if (!/^[A-Za-z0-9]{1,11}$/.test(sid)) { setAlert('Sender ID: max 11 alphanumeric chars, no spaces.', 'warn'); return; }
+  if (!msg)  { setAlert('Type a message.', 'warn'); return; }
+  if (!valid.length) { setAlert('No valid contacts loaded.', 'warn'); return; }
+  document.getElementById('confirmText').innerHTML = `Send to <strong>${valid.length} recipient${valid.length > 1 ? 's' : ''}</strong> from <strong>"${sid}"</strong>.<br><br>Recipients cannot reply. This cannot be undone.`;
+  document.getElementById('confirmModal').classList.add('open');
+}
+function closeModal() { document.getElementById('confirmModal').classList.remove('open'); }
+
+async function executeSend() {
+  closeModal();
+  isSending = true; stopFlag = false; logLines = [];
+  const url = getServer(), key = document.getElementById('apiKey').value.trim();
+  const sid = document.getElementById('senderId').value.trim(), msg = document.getElementById('msgText').value.trim();
+  const delay = parseInt(document.getElementById('delayMs').value);
+  const retries = parseInt(document.getElementById('retryCount').value);
+  const valid = contacts.filter(c => c.valid);
+
+  document.getElementById('sendBtn').disabled = true;
+  document.getElementById('sendBtn').innerHTML = '<span class="spin"></span> Sending…';
+  document.getElementById('stopBtn').style.display = 'block';
+  document.getElementById('progSection').style.display = 'block';
+  document.getElementById('logSection').style.display = 'block';
+  document.getElementById('logWrap').innerHTML = '';
+  setAlert('', '');
+
+  let sent = 0, failed = 0, stopped = 0;
+  const sessionLog = [], startTime = new Date();
+  log(`Starting: ${valid.length} recipients · sender "${sid}"`, 'inf');
+
+  for (let i = 0; i < valid.length; i++) {
+    if (stopFlag) { stopped = valid.length - i; log(`⏹ Stopped. ${stopped} remaining.`, 'warn'); break; }
+    const c = valid[i];
+    const pct = Math.round((i / valid.length) * 100);
+    document.getElementById('progBar').style.width = pct + '%';
+    document.getElementById('progPct').textContent = pct + '%';
+    document.getElementById('progLabel').textContent = `Sending ${i + 1} of ${valid.length}…`;
+    document.getElementById('progDetail').textContent = `→ ${c.phone}${c.name ? ' (' + c.name + ')' : ''}`;
+
+    let result = null, attempts = 0;
+    while (attempts < 1 + retries) {
+      attempts++;
+      try {
+        const r = await fetch(`${url}/api/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apiKey: key, senderId: sid, phone: c.phone, message: msg })
+        });
+        result = await r.json();
+        if (result.ok) break;
+        if (attempts <= retries) { log(`↻ Retry ${attempts} for ${c.phone}…`, 'warn'); await sleep(1000); }
+      } catch (err) {
+        result = { ok: false, message: err.message };
+        if (attempts <= retries) await sleep(1000);
+      }
+    }
+
+    if (result && result.ok) {
+      sent++;
+      log(`✓ ${c.phone}${c.name ? ' (' + c.name + ')' : ''}`, 'ok');
+      sessionLog.push({ phone: c.phone, name: c.name, status: 'sent' });
+    } else {
+      failed++;
+      const e = result?.message || result?.raw?.message || 'Unknown error';
+      log(`✗ ${c.phone} — ${String(e).slice(0, 70)}`, 'err');
+      sessionLog.push({ phone: c.phone, name: c.name, status: 'failed', error: e });
+    }
+    if (i < valid.length - 1 && !stopFlag) await sleep(delay);
+  }
+
+  document.getElementById('progBar').style.width = '100%';
+  document.getElementById('progPct').textContent = '100%';
+  document.getElementById('progLabel').textContent = stopFlag ? 'Stopped' : 'Complete';
+  document.getElementById('progDetail').textContent = '';
+
+  const summary = `✓ ${sent} sent · ✗ ${failed} failed${stopped ? ' · ⏹ ' + stopped + ' skipped' : ''}`;
+  log(`─── ${summary} ───`, 'inf');
+  setAlert(summary, failed === 0 ? 'success' : sent === 0 ? 'danger' : 'warn');
+
+  saveHistory({ date: startTime.toLocaleString(), senderId: sid, message: msg, total: valid.length, sent, failed, stopped, log: sessionLog });
+
+  document.getElementById('sendBtn').disabled = false;
+  document.getElementById('sendBtn').innerHTML = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Send Bulk SMS`;
+  document.getElementById('stopBtn').style.display = 'none';
+  document.getElementById('stopBtn').disabled = false;
+  document.getElementById('stopBtn').textContent = '⏹ Stop Sending';
+  isSending = false;
+}
+
+function stopSend() { stopFlag = true; document.getElementById('stopBtn').disabled = true; document.getElementById('stopBtn').textContent = 'Stopping…'; }
+function log(text, type) {
+  logLines.push(text);
+  const el = document.getElementById('logWrap');
+  const d = document.createElement('div');
+  d.className = { ok:'lok', err:'lerr', warn:'lwarn', inf:'linf' }[type] || 'linf';
+  d.textContent = new Date().toLocaleTimeString() + '  ' + text;
+  el.appendChild(d); el.scrollTop = el.scrollHeight;
+}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function exportLog() {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([logLines.join('\n')], { type: 'text/plain' }));
+  a.download = `bulksend_log_${Date.now()}.txt`; a.click();
+}
+
+// ─── HISTORY ──────────────────────────────────────────────────────
+function saveHistory(e) {
+  sendHistory.unshift(e);
+  if (sendHistory.length > 50) sendHistory = sendHistory.slice(0, 50);
+  try { localStorage.setItem('bulksend_history', JSON.stringify(sendHistory)); } catch {}
+}
+function clearHistory() {
+  if (!confirm('Clear all history?')) return;
+  sendHistory = []; try { localStorage.removeItem('bulksend_history'); } catch {};
+  renderHistory();
+}
+function renderHistory() {
+  const c = document.getElementById('historyContainer');
+  if (!sendHistory.length) { c.innerHTML = '<div class="history-empty">No history yet.</div>'; return; }
+  c.innerHTML = sendHistory.map((h, i) => `
+    <div style="border:1px solid var(--border);border-radius:var(--rs);padding:1rem;margin-bottom:1rem;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;">
+        <div>
+          <div style="font-weight:500;font-size:14px;">${h.senderId} <span style="font-size:12px;color:var(--muted);font-weight:400;">· ${h.date}</span></div>
+          <div style="font-size:13px;color:var(--muted);margin-top:3px;max-width:500px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${h.message}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          <span class="badge bg">✓ ${h.sent}</span>
+          ${h.failed ? `<span class="badge br">✗ ${h.failed}</span>` : ''}
+          ${h.stopped ? `<span class="badge bgy">⏹ ${h.stopped}</span>` : ''}
+        </div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;">
+        <button class="btn-sec" style="font-size:12px;padding:5px 12px;" onclick="exportHistoryEntry(${i})">↓ Export log</button>
+        <button class="btn-sec" style="font-size:12px;padding:5px 12px;" onclick="reuseCampaign(${i})">↺ Reuse message</button>
+      </div>
+    </div>`).join('');
+}
+function exportHistoryEntry(i) {
+  const h = sendHistory[i];
+  const lines = [`BulkSend — ${h.date}`, `Sender: ${h.senderId}`, `Message: ${h.message}`, `Sent: ${h.sent} | Failed: ${h.failed}`, '─'.repeat(40), ...h.log.map(l => `${l.status.toUpperCase()}\t${l.phone}\t${l.name || ''}\t${l.error || ''}`)];
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/plain' }));
+  a.download = `bulksend_${h.senderId}_${Date.now()}.txt`; a.click();
+}
+function reuseCampaign(i) {
+  const h = sendHistory[i];
+  document.getElementById('senderId').value = h.senderId;
+  document.getElementById('msgText').value = h.message;
+  updatePreview(); switchTab('compose');
+}
+
+// ─── SAMPLE EXCEL ─────────────────────────────────────────────────
+function downloadSample() {
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ['Name','Phone'],
+    ['Kwame Mensah','0244123456'],
+    ['Ama Owusu','+233201234567'],
+    ['Ibrahim Alhassan','0554321098'],
+    ['Abena Asante','0271122334'],
+  ]), 'Contacts');
+  XLSX.writeFile(wb, 'bulksend_sample_contacts.xlsx');
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────
+updatePreview();
+</script>
+</body>
+</html>
